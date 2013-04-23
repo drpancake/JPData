@@ -557,17 +557,18 @@
         if (objectIDs == nil || [objectIDs count] < 1) continue;
         
         NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:entityName];
-        request.predicate = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
-            NSManagedObject *object = evaluatedObject;
-            
-            BOOL valid = [objectIDs containsObject:object.objectID.URIRepresentation];
-            if (id_ && ![[object valueForKey:@"id_"] isEqual:id_]) valid = NO;
-            
-            return valid;
-        }];
+        if (id_) request.predicate = [NSPredicate predicateWithFormat:@"id_ == %@", id_];
         
         NSArray *results = [self.managedObjectContext executeFetchRequest:request error:nil];
-        [objects addObjectsFromArray:results];
+        
+        // Filter out objects where objectID doesn't match the key we're being queried for
+        
+        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
+            NSManagedObject *object = evaluatedObject;
+            return [objectIDs containsObject:object.objectID.URIRepresentation] == YES;
+        }];
+        
+        [objects addObjectsFromArray:[results filteredArrayUsingPredicate:predicate]];
     }
     
     if ([objects count] > 0) return [NSArray arrayWithArray:objects];
