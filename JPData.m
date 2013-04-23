@@ -45,6 +45,7 @@
 - (void)cleanManagedObjectKeys;
 
 - (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key;
+- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key; // does the opposite of above
 
 - (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate;
 
@@ -211,8 +212,10 @@
             // -- Delete previously stored objects, unless append=YES in which case we add to them --
             
             if (!append) {
-                for (NSManagedObject *object in cachedObjects)
+                for (NSManagedObject *object in cachedObjects) {
+                    [self disassociateObject:object withKey:key];
                     [_managedObjectContext deleteObject:object];
+                }
             } else if (cachedObjects != nil) {
                 [newObjects addObjectsFromArray:cachedObjects];
             }
@@ -322,7 +325,10 @@
         
         @try {
             // Delete cached object if there is one
-            if (cachedObject) [self.managedObjectContext deleteObject:cachedObject];
+            if (cachedObject) {
+                [self disassociateObject:cachedObject withKey:key];
+                [self.managedObjectContext deleteObject:cachedObject];
+            }
             
             // -- Convert JSON to Core Data model object --
             
@@ -442,7 +448,11 @@
     // Clear any persisted objects
     BOOL stale;
     NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale];
-    for (NSManagedObject *object in objects) [self.managedObjectContext deleteObject:object];
+    for (NSManagedObject *object in objects) {
+        [self disassociateObject:object withKey:key];
+        [self.managedObjectContext deleteObject:object];
+    }
+    
     [self.managedObjectContext save:nil];
     
     // Forget last cache misses for this key
@@ -709,6 +719,21 @@
     
     [newStrings addObject:[object.objectID.URIRepresentation absoluteString]];
     _keyToManagedObjectMapping[key] = newStrings;
+    
+    // Persist
+    [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
+    [_def synchronize];
+}
+
+- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key
+{
+    if (!_keyToManagedObjectMapping[key]) return;
+    
+    NSString *idString = [object.objectID.URIRepresentation absoluteString];
+    NSMutableArray *idStrings = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[key]];
+    if (idStrings) [idStrings removeObject:idString];
+    
+    _keyToManagedObjectMapping[key] = [NSArray arrayWithArray:idStrings];
     
     // Persist
     [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
