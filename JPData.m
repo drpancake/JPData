@@ -13,7 +13,6 @@
 @interface JPData ()
 
 - (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key;
-- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data;
 
 // Returns YES if elapsed duration between 'loadTime' and now has exceeded cache time given key
 - (BOOL)isCacheTimeExceededForTime:(NSDate *)loadTime withKey:(NSString *)key;
@@ -88,6 +87,61 @@
         instance = [[[self class] alloc] init]; // allows for subclassing
     }
     return instance;
+}
+
+- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data
+{
+    NSArray *jsonKeys = [data allKeys];
+    
+    NSUInteger count = 0;
+    objc_property_t* properties = class_copyPropertyList([object class], &count);
+    for (int i = 0; i < count; i++) {
+        NSString *propertyName = [NSString stringWithUTF8String:property_getName(properties[i])];
+        
+        // Usually the JSON key will match the name of the property, but sometimes (e.g. "id") there's
+        // a conflict with Obj-C reserved keywords, so a trailing underscore is used in the entity
+        NSString *jsonKey = propertyName;
+        if ([jsonKey characterAtIndex:[jsonKey length] - 1] == '_')
+            jsonKey = [jsonKey substringToIndex:[jsonKey length] - 1];
+        
+        // Make sure we have a corresponding JSON value for this @property before carrying on
+        if (![jsonKeys containsObject:jsonKey]) {
+            if (self.debug) NSLog(@"WARNING: no key in JSON matching property @%@", propertyName);
+            continue;
+        }
+        
+        id value = [data objectForKey:jsonKey];
+        
+        // NSSet properties (i.e. relations) should be handled by subclass
+        NSString *attrs = [NSString stringWithUTF8String:property_getAttributes(properties[i])];
+        if ([attrs rangeOfString:@"NSSet"].location != NSNotFound) {
+            [self setValue:value forSpecialProperty:propertyName inObject:object];
+            continue;
+        }
+        
+        // JSON keys of type NSDictionary should be handled by subclass, as they're probably
+        // needing to be turned into Core Data models
+        if ([value isKindOfClass:[NSDictionary class]]) {
+            [self setValue:value forSpecialProperty:propertyName inObject:object];
+            continue;
+        }
+        
+        // Convert NSNull to nil
+        if ([value isKindOfClass:[NSNull class]])
+            value = nil;
+        
+        @try {
+            // Here the subclass can jump in to handle a special case
+            if ([self willSetValue:value forProperty:propertyName inObject:object]) {
+                // Subclass returned YES, so attempt to assign value automatically
+                [object setValue:value forKey:propertyName];
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"ERROR setting property '%@' to value '%@' for model class: %@", propertyName, value, [object class]);
+        }
+    }
+    
+    free(properties);
 }
 
 #pragma mark -
@@ -615,61 +669,6 @@
     if (!entityName) return nil;
     
     return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:self.managedObjectContext];
-}
-
-- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data
-{
-    NSArray *jsonKeys = [data allKeys];
-    
-    NSUInteger count = 0;
-    objc_property_t* properties = class_copyPropertyList([object class], &count);
-    for (int i = 0; i < count; i++) {
-        NSString *propertyName = [NSString stringWithUTF8String:property_getName(properties[i])];
-        
-        // Usually the JSON key will match the name of the property, but sometimes (e.g. "id") there's
-        // a conflict with Obj-C reserved keywords, so a trailing underscore is used in the entity
-        NSString *jsonKey = propertyName;
-        if ([jsonKey characterAtIndex:[jsonKey length] - 1] == '_')
-            jsonKey = [jsonKey substringToIndex:[jsonKey length] - 1];
-        
-        // Make sure we have a corresponding JSON value for this @property before carrying on
-        if (![jsonKeys containsObject:jsonKey]) {
-            if (self.debug) NSLog(@"WARNING: no key in JSON matching property @%@", propertyName);
-            continue;
-        }
-        
-        id value = [data objectForKey:jsonKey];
-        
-        // NSSet properties (i.e. relations) should be handled by subclass
-        NSString *attrs = [NSString stringWithUTF8String:property_getAttributes(properties[i])];
-        if ([attrs rangeOfString:@"NSSet"].location != NSNotFound) {
-            [self setValue:value forSpecialProperty:propertyName inObject:object];
-            continue;
-        }
-        
-        // JSON keys of type NSDictionary should be handled by subclass, as they're probably
-        // needing to be turned into Core Data models
-        if ([value isKindOfClass:[NSDictionary class]]) {
-            [self setValue:value forSpecialProperty:propertyName inObject:object];
-            continue;
-        }
-        
-        // Convert NSNull to nil
-        if ([value isKindOfClass:[NSNull class]])
-            value = nil;
-        
-        @try {
-            // Here the subclass can jump in to handle a special case
-            if ([self willSetValue:value forProperty:propertyName inObject:object]) {
-                // Subclass returned YES, so attempt to assign value automatically
-                [object setValue:value forKey:propertyName];
-            }
-        } @catch (NSException *exception) {
-            NSLog(@"ERROR setting property '%@' to value '%@' for model class: %@", propertyName, value, [object class]);
-        }
-    }
-    
-    free(properties);
 }
 
 - (void)cleanMisses

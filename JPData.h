@@ -64,6 +64,7 @@ typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
 
 - (void)clearCacheForKey:(NSString *)key;
 - (void)clearCache; // wipe cache of all keys
+- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data;
 
 // Helper method for miscellaneous API calls
 - (void)requestWithMethod:(NSString *)method
