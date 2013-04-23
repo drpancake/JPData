@@ -295,7 +295,8 @@
      In any case, we need to perform an API call.
      */
     
-    NSString *endpoint = [NSString stringWithFormat:@"%@/%@", mappingDict[@"endpoint"], id_];
+    NSString *endpoint = mappingDict[@"endpoint"];
+    if (id_) endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
@@ -487,7 +488,8 @@
 
 - (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSNumber *)id_
 {
-    NSString *k = [NSString stringWithFormat:@"%@_%@", key, id_];
+    NSString *k = key;
+    if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
     return _misses[k];
 }
 
@@ -502,7 +504,8 @@
 
 - (void)setMissTimeForKey:(NSString *)key withID:(NSNumber *)id_
 {
-    NSString *k = [NSString stringWithFormat:@"%@_%@", key, id_];
+    NSString *k = key;
+    if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
     _misses[k] = @([[NSDate date] timeIntervalSince1970]);
     
     // Persist
