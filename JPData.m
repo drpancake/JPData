@@ -676,7 +676,7 @@
 {
     // Discard dead cache entries older than two weeks
     int threshold = 3600 * 24 * 14;
-    for (id key in [_misses allKeys]) {
+    for (NSString *key in _misses) {
         NSNumber *missTime = _misses[key];
         if (([[NSDate date] timeIntervalSince1970] - [missTime doubleValue]) > threshold)
             [_misses removeObjectForKey:key];
@@ -689,14 +689,29 @@
 
 - (void)cleanManagedObjectKeys
 {
-    for (id key in [_keyToManagedObjectMapping allKeys]) {
-        for (NSString *s in _keyToManagedObjectMapping[key]) {
+    for (NSString *key in _keyToManagedObjectMapping) {
+        NSArray *idStrings = _keyToManagedObjectMapping[key];
+        for (NSString *idString in idStrings) {
+            
+            /*
+              Turn the URI back into an ID that Core Data understands.
+             
+              Note: the URI is only valid for the persistent store that the object was stored in,
+              so if models change and we migrate to a brand new store, then
+              managedObjectIDForURIRepresentation: will return nil.
+            */
+            
             NSManagedObjectID *objectID = [_managedObjectContext.persistentStoreCoordinator
-                                           managedObjectIDForURIRepresentation:[NSURL URLWithString:s]];
-            NSError *error = nil;
-            NSManagedObject *object = [_managedObjectContext existingObjectWithID:objectID error:&error];
-            if (error != nil || object == nil) {
-                NSLog(@"clean it! err = %@", error);
+                                           managedObjectIDForURIRepresentation:[NSURL URLWithString:idString]];
+            
+            // Remove the URI if the object's URI can't be found in this store
+            if (objectID == nil || [self.managedObjectContext objectWithID:objectID] == nil) {
+                
+                NSLog(@"Cleaning: %@", idString);
+                
+                NSMutableArray *arr = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[key]];
+                [arr removeObject:idString];
+                _keyToManagedObjectMapping[key] = [NSArray arrayWithArray:arr];
             }
         }
     }
