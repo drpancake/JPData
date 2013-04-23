@@ -32,6 +32,8 @@
 
 
 typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
+typedef void(^JPDataFetchManyBlock)(NSArray *objects, BOOL more, NSError *error);
+typedef void(^JPDataFetchBlock)(id object, NSError *error);
 
 @interface JPData : NSObject {
 @private
@@ -51,6 +53,7 @@ typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
 */
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion; // note: only fresh objects returned
 
 /*
   Fetch a single object. The given ID is appended to the endpoint associated with this key,
@@ -61,6 +64,7 @@ typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
  */
 - (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
+- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion;
 
 - (void)clearCacheForKey:(NSString *)key;
 - (void)clearCache; // wipe cache of all keys

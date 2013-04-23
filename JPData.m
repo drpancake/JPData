@@ -12,6 +12,20 @@
 
 @interface JPData ()
 
+// Only one of 'delegate' and 'block' should be passed in as arguments, never both
+- (void)_fetchMany:(NSString *)key
+        withParams:(NSDictionary *)params
+            append:(BOOL)append
+          delegate:(id<JPDataDelegate>)delegate
+             block:(JPDataFetchManyBlock)block;
+
+// Only one of 'delegate' and 'block' should be passed in as arguments, never both
+- (void)_fetch:(NSString *)key
+        withID:(NSNumber *)id_
+        params:(NSDictionary *)params
+      delegate:(id<JPDataDelegate>)delegate
+         block:(JPDataFetchBlock)block;
+
 - (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key;
 
 // Returns YES if elapsed duration between 'loadTime' and now has exceeded cache time given key
@@ -46,7 +60,8 @@
 - (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key;
 - (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key; // does the opposite of above
 
-- (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate;
+// Helper
+- (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate orBlock:(JPDataFetchBlock)block;
 
 @end
 
@@ -214,7 +229,11 @@
 #pragma mark -
 #pragma mark Fetch methods
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
+- (void)_fetchMany:(NSString *)key
+        withParams:(NSDictionary *)params
+            append:(BOOL)append
+          delegate:(id<JPDataDelegate>)delegate
+             block:(JPDataFetchManyBlock)block
 {
     NSDictionary *mappingDict = _mapping[key];
     if (mappingDict == nil) {
@@ -236,11 +255,14 @@
         NSArray *sorted = [self sortModelObjects:cachedObjects withMapping:mappingDict];
         
         if (stale) {
-            if ([delegate respondsToSelector:@selector(data:didReceiveStaleObjects:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveStaleObjects:)])
                 [delegate data:self didReceiveStaleObjects:sorted];
         } else {
-            if ([delegate respondsToSelector:@selector(data:didReceiveObjects:more:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:)]) {
                 [delegate data:self didReceiveObjects:sorted more:NO];
+            } else if (block) {
+                block(sorted, NO, nil);
+            }
             
             // The cache is fresh so we don't need to do anything else
             return;
@@ -257,8 +279,11 @@
     [self requestWithMethod:@"GET" endpoint:mappingDict[@"endpoint"] params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
             
-            if ([delegate respondsToSelector:@selector(data:didFailWithError:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
                 [delegate data:self didFailWithError:error];
+            } else if (block) {
+                block(nil, NO, error);
+            }
             
         } else {
             NSMutableArray *newObjects = [NSMutableArray array];
@@ -307,18 +332,35 @@
             BOOL more = [self serverHasMoreAfterResult:result];
             
             NSArray *sorted = [self sortModelObjects:newObjects withMapping:mappingDict];
-            if ([delegate respondsToSelector:@selector(data:didReceiveObjects:more:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:)]) {
                 [delegate data:self didReceiveObjects:sorted more:more];
+            } else if (block) {
+                block(sorted, more, nil);
+            }
         }
     }];
 }
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
 {
-    [self fetchMany:key withParams:params append:NO delegate:delegate];
+    [self _fetchMany:key withParams:params append:append delegate:delegate block:nil];
 }
 
-- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+{
+    [self _fetchMany:key withParams:params append:NO delegate:delegate block:nil];
+}
+
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion
+{
+    [self _fetchMany:key withParams:params append:NO delegate:nil block:completion];
+}
+
+- (void)_fetch:(NSString *)key
+        withID:(NSNumber *)id_
+        params:(NSDictionary *)params
+      delegate:(id<JPDataDelegate>)delegate
+         block:(JPDataFetchBlock)block
 {
     NSDictionary *mappingDict = _mapping[key];
     if (mappingDict == nil) {
@@ -334,11 +376,14 @@
     
     if (cachedObject) {
         if (stale) {
-            if ([delegate respondsToSelector:@selector(data:didReceiveStaleObject:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveStaleObject:)])
                 [delegate data:self didReceiveStaleObject:cachedObject];
         } else {
-            if ([delegate respondsToSelector:@selector(data:didReceiveObject:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:)]) {
                 [delegate data:self didReceiveObject:cachedObject];
+            } else if (block) {
+                block(cachedObject, nil);
+            }
             
             // The cache is fresh so we don't need to do anything else
             return;
@@ -357,8 +402,11 @@
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
-            if ([delegate respondsToSelector:@selector(data:didFailWithError:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
                 [delegate data:self didFailWithError:error];
+            } else if (block) {
+                block(nil, error);
+            }
             return;
         }
         
@@ -366,14 +414,14 @@
         
         if (dict == nil) {
             NSString *msg = [NSString stringWithFormat:@"Empty dictionary received for endpoint '%@'", endpoint];
-            [self sendErrorMessage:msg toDelegate:delegate];
+            [self sendErrorMessage:msg toDelegate:delegate orBlock:block];
             return;
         }
         
         if (![dict isKindOfClass:[NSDictionary class]]) {
             NSString *msg = [NSString stringWithFormat:@"Expecting a dictionary for endpoint '%@' but found '%@'",
                              endpoint, NSStringFromClass([result class])];
-            [self sendErrorMessage:msg toDelegate:delegate];
+            [self sendErrorMessage:msg toDelegate:delegate orBlock:block];
             return;
         }
         
@@ -390,7 +438,7 @@
             
             if (object == nil) {
                 NSString *msg = [NSString stringWithFormat:@"Unable to create object for endpoint '%@'.", endpoint];
-                [self sendErrorMessage:msg toDelegate:delegate];
+                [self sendErrorMessage:msg toDelegate:delegate orBlock:block];
                 return;
             }
             
@@ -404,14 +452,27 @@
             
             [self setMissTimeForKey:key withID:id_];
             
-            if ([delegate respondsToSelector:@selector(data:didReceiveObject:)])
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:)]) {
                 [delegate data:self didReceiveObject:object];
+            } else if (block) {
+                block(object, nil);
+            }
             
         } @catch (NSException *exception) {
             NSString *msg = [NSString stringWithFormat:@"Problem communicating with the server. [%@]", exception.reason];
-            [self sendErrorMessage:msg toDelegate:delegate];
+            [self sendErrorMessage:msg toDelegate:delegate orBlock:block];
         }
     }];
+}
+
+- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+{
+    [self _fetch:key withID:id_ params:params delegate:delegate block:nil];
+}
+
+- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion
+{
+    [self _fetch:key withID:id_ params:params delegate:nil block:completion];
 }
 
 #pragma mark -
@@ -754,12 +815,15 @@
     [_def synchronize];
 }
 
-- (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate
+- (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate orBlock:(JPDataFetchBlock)block
 {
     NSError *error = [NSError errorWithDomain:@"JPData" code:1 userInfo:@{NSLocalizedDescriptionKey: message}];
     
-    if ([delegate respondsToSelector:@selector(data:didFailWithError:)])
+    if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
         [delegate data:self didFailWithError:error];
+    } else if (block) {
+        block(nil, error);
+    }
 }
 
 @end
