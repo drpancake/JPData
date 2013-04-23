@@ -565,7 +565,7 @@
         
         NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
             NSManagedObject *object = evaluatedObject;
-            return [objectIDs containsObject:object.objectID.URIRepresentation] == YES;
+            return [objectIDs containsObject:[object.objectID.URIRepresentation absoluteString]] == YES;
         }];
         
         [objects addObjectsFromArray:[results filteredArrayUsingPredicate:predicate]];
