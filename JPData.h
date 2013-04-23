@@ -49,6 +49,7 @@ typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
  
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
 */
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
 
 /*
@@ -76,7 +77,7 @@ typedef void(^JPDataRequestBlock)(NSDictionary *result, NSError *error);
 // -- Methods for subclassing --
 
 // Only called once, on initialization. This method must be subclassed.
-+ (NSDictionary *)keyMappings;
+- (NSDictionary *)keyMappings;
 
 /*
   If no 'order' is specified for a key in 'keyMappings' then this value will

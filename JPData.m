@@ -61,7 +61,7 @@
         _debug = NO;
         _def = [NSUserDefaults standardUserDefaults];
         _parser = [[SBJsonParser alloc] init];
-        _mapping = [JPData keyMappings];
+        _mapping = [self keyMappings];
         
         _keyToManagedObjectMapping = [_def objectForKey:JP_DATA_MANAGED_OBJECT_KEYS];
         if (_keyToManagedObjectMapping == nil) {
@@ -84,7 +84,7 @@
 {
     static JPData *instance = nil;
     if (instance == nil) {
-        instance = [[JPData alloc] init];
+        instance = [[[self class] alloc] init]; // allows for subclassing
     }
     return instance;
 }
@@ -92,7 +92,7 @@
 #pragma mark -
 #pragma mark Methods for subclassing
 
-+ (NSDictionary *)keyMappings
+- (NSDictionary *)keyMappings
 {
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"You must override %@ in a subclass.", NSStringFromSelector(_cmd)]
@@ -254,6 +254,11 @@
                 [delegate data:self didReceiveObjects:sorted more:more];
         }
     }];
+}
+
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+{
+    [self fetchMany:key withParams:params append:NO delegate:delegate];
 }
 
 - (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
@@ -419,7 +424,7 @@
                                    }
                                    
                                    NSDictionary *userInfo = @{NSLocalizedDescriptionKey : message};
-                                   error = [NSError errorWithDomain:@"Urbantribe" code:1 userInfo:userInfo];
+                                   error = [NSError errorWithDomain:@"JPData" code:1 userInfo:userInfo];
                                    requestBlock(nil, error);
                                    
                                } else {
@@ -708,7 +713,7 @@
 
 - (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate
 {
-    NSError *error = [NSError errorWithDomain:@"JPDataError" code:1 userInfo:@{NSLocalizedDescriptionKey: message}];
+    NSError *error = [NSError errorWithDomain:@"JPData" code:1 userInfo:@{NSLocalizedDescriptionKey: message}];
     
     if ([delegate respondsToSelector:@selector(data:didFailWithError:)])
         [delegate data:self didFailWithError:error];
