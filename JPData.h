@@ -119,10 +119,12 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 - (NSDictionary *)dictionaryFromResult:(NSDictionary *)result;
 
 /*
-  If no 'entity' is specified for the given key in keyMappings, this method is called
-  to determine the entity name at runtime. If this is the case, this method must be subclassed.
+  If no 'entities' is specified for the given key in keyMappings instead of the standard 'entity',
+  then this method is called to determine the entity name to use for a given JSON object.
+ 
+  This method must be subclassed in 'entities' is used once or more.
 */
-- (NSString *)entityNameForKey:(NSString *)key jsonData:(NSDictionary *)dict;
+- (NSString *)entityNameForJsonData:(NSDictionary *)dict withKey:(NSString *)key;
 
 /*
  Called by fetchMany:withParams:append:delegate: when a JSON result comes back.

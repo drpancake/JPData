@@ -198,7 +198,7 @@
     return result;
 }
 
-- (NSString *)entityNameForKey:(NSString *)key jsonData:(NSDictionary *)dict
+- (NSString *)entityNameForJsonData:(NSDictionary *)dict withKey:(NSString *)key
 {
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"You must override %@ in a subclass if 'entity' not specified for a key.",
@@ -726,7 +726,7 @@
     NSString *entityName = mappingDict[@"entity"];
     
     // When 
-    if (!entityName) entityName = [self entityNameForKey:key jsonData:dict];
+    if (!entityName) entityName = [self entityNameForJsonData:dict withKey:key];
     if (!entityName) return nil;
     
     return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:self.managedObjectContext];
