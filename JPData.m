@@ -78,6 +78,7 @@
         _parser = [[SBJsonParser alloc] init];
         _mapping = [self keyMappings];
         
+        // Fetch stored dictionary or create one
         _keyToManagedObjectMapping = [_def objectForKey:JP_DATA_MANAGED_OBJECT_KEYS];
         if (_keyToManagedObjectMapping == nil) {
             _keyToManagedObjectMapping = [NSMutableDictionary dictionary];
@@ -85,12 +86,17 @@
             [self cleanManagedObjectKeys];
         }
         
+        // Fetch stored dictionary or create one
         _misses = [_def objectForKey:JP_DATA_MISSES_KEY];
         if (_misses == nil) {
             _misses = [NSMutableDictionary dictionary];
         } else {
             [self cleanMisses];
         }
+        
+        // Cache entities list
+        NSManagedObjectModel *managedObjectModel = self.managedObjectContext.persistentStoreCoordinator.managedObjectModel;
+        _entities = [[managedObjectModel entitiesByName] allKeys];
     }
     return self;
 }
@@ -134,10 +140,22 @@
             continue;
         }
         
-        // JSON keys of type NSDictionary should be handled by subclass, as they're probably
-        // needing to be turned into Core Data models
+        // NSDictionary properties can sometimes be handled automatically
         if ([value isKindOfClass:[NSDictionary class]]) {
-            [self setValue:value forSpecialProperty:propertyName inObject:object];
+            // Try to guess Core Data entity based on the @property name and ensure it exists
+            NSString *entityName = [propertyName capitalizedString];
+            if (![_entities containsObject:entityName]) {
+                
+                // Unable to do this automatically so let subclass handle it
+                [self setValue:value forSpecialProperty:propertyName inObject:object];
+                
+                continue;
+            }
+            
+            NSManagedObject *otherObject = [NSEntityDescription insertNewObjectForEntityForName:entityName
+                                                                         inManagedObjectContext:self.managedObjectContext];
+            [self populateModelObject:otherObject withData:value];
+            [object setValue:otherObject forKey:propertyName];
             continue;
         }
         

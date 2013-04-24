@@ -42,6 +42,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
     NSDictionary *_mapping; // key (NSString) -> parameters (NSDictionary)
     NSMutableDictionary *_misses; // key (NSString) -> Unix time of last cache miss (NSNumber)
     NSMutableDictionary *_keyToManagedObjectMapping; // key (NSString) -> list of object UUIDs (NSArray)
+    NSArray *_entities;
 }
 
 + (JPData *)sharedData; // Singleton
