@@ -4,17 +4,14 @@ JPData
 Boilerplate for mapping from a JSON web service to Core Data models. Caching  
 is built-in, with customisable timeouts.
 
-Requirements
-============
+Requirements:
+-------------
 
 * SBJson
 
-Setup your Core Data models
-===========================
-
-* Each 
+Notes:
+------
 
 * Core Data models should use a trailing underscore where the associated JSON
   key is a reserved keyword, e.g. "id" can be named "id_" in the model.
 
-* Override keyMapping
