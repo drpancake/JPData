@@ -483,8 +483,15 @@
                    params:(NSDictionary *)params
                completion:(JPDataRequestBlock)requestBlock
 {
+    // Discard empty params
+    if (params && [params count] < 1)
+        params = nil;
+    
+    // Construct URL
     NSString *baseString = [[self baseURL] absoluteString];
     NSMutableString *urlString = [NSMutableString stringWithFormat:@"%@%@", baseString, endpoint];
+    
+    // GET parameters
     if ([method isEqualToString:@"GET"] && params) {
         [urlString appendFormat:@"?%@", [params urlEncodedString]];
     }
@@ -493,24 +500,23 @@
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:method];
     
-    NSString *paramsString = nil;
-    if ([method isEqualToString:@"POST"] && params) {
-        paramsString = [params urlEncodedString];
-        NSData *requestData = [NSData dataWithBytes:[paramsString UTF8String] length:[paramsString length]];
-        [request setHTTPBody:requestData];
-    }
-    
-    if ([method isEqualToString:@"POST"])
+    // POST parameters
+    if ([method isEqualToString:@"POST"]) {
         [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"content-type"];
+        
+        if (params) {
+            NSString *paramsString = [params urlEncodedString];
+            NSData *requestData = [NSData dataWithBytes:[paramsString UTF8String] length:[paramsString length]];
+            [request setHTTPBody:requestData];
+            
+            if (self.debug) NSLog(@"--> PARAMS: %@", paramsString);
+        }
+    }
     
     // Last chance for subclasses to customise the request
     [self willSendRequest:request];
     
-    // Debug logging
-    if (self.debug) {
-        NSLog(@"REQ: %@", request.URL);
-        if (paramsString) NSLog(@"--> PARAMS: %@", paramsString);
-    }
+    if (self.debug) NSLog(@"REQ: %@", request.URL);
     
     // Show the status bar spinner
     UIApplication *app = [UIApplication sharedApplication];
