@@ -777,7 +777,7 @@
 
 - (void)cleanManagedObjectKeys
 {
-    for (NSString *key in _keyToManagedObjectMapping) {
+    for (NSString *key in [_keyToManagedObjectMapping allKeys]) {
         NSArray *idStrings = _keyToManagedObjectMapping[key];
         for (NSString *idString in idStrings) {
             
