@@ -489,18 +489,15 @@
         [urlString appendFormat:@"?%@", [params urlEncodedString]];
     }
     
-    if (self.debug) NSLog(@"REQ: %@", urlString);
-    
     NSURL *url = [NSURL URLWithString:urlString];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:method];
     
+    NSString *paramsString = nil;
     if ([method isEqualToString:@"POST"] && params) {
-        NSString *paramsString = [params urlEncodedString];
+        paramsString = [params urlEncodedString];
         NSData *requestData = [NSData dataWithBytes:[paramsString UTF8String] length:[paramsString length]];
         [request setHTTPBody:requestData];
-        
-        if (self.debug) NSLog(@"--> PARAMS: %@", paramsString);
     }
     
     if ([method isEqualToString:@"POST"])
@@ -508,6 +505,12 @@
     
     // Last chance for subclasses to customise the request
     [self willSendRequest:request];
+    
+    // Debug logging
+    if (self.debug) {
+        NSLog(@"REQ: %@", request.URL);
+        if (paramsString) NSLog(@"--> PARAMS: %@", paramsString);
+    }
     
     // Show the status bar spinner
     UIApplication *app = [UIApplication sharedApplication];
