@@ -663,11 +663,12 @@
     
     if (entityName) {
         [entities addObject:entityName];
+    } else if (mappingDict[@"entities"]) {
+        [entities addObjectsFromArray:mappingDict[@"entities"]];
     } else {
-        [entities addObjectsFromArray:[mappingDict[@"entities"] allValues]];
+        NSLog(@"WARNING no 'entity' or 'entities' specified for key '%@'. Caching disabled.", key);
+        return nil;
     }
-    
-    NSAssert([entities count] > 0, @"Expecting entities for key '%@'", key);
     
     /*
       Fetch cached objects for each entity associated with this key.
