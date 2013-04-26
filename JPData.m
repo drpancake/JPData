@@ -562,7 +562,7 @@
                                    
                                    requestBlock(result, nil);
                                    
-                               } else if (statusCode == 400 || statusCode == 404) {
+                               } else if (statusCode == 400 || statusCode == 404 || statusCode == 500) {
                                    NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                    NSDictionary *json = [_parser objectWithString:text];
                                    NSString *message;
