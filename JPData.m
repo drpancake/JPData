@@ -511,7 +511,11 @@
     
     // GET parameters
     if ([method isEqualToString:@"GET"] && params) {
-        [urlString appendFormat:@"?%@", [params urlEncodedString]];
+        if ([urlString rangeOfString:@"?"].location == NSNotFound) {
+            [urlString appendFormat:@"?%@", [params urlEncodedString]];
+        } else {
+            [urlString appendFormat:@"&%@", [params urlEncodedString]];
+        }
     }
     
     NSURL *url = [NSURL URLWithString:urlString];
