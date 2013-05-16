@@ -764,7 +764,7 @@
 {
     // Discard dead cache entries older than two weeks
     int threshold = 3600 * 24 * 14;
-    for (NSString *key in _misses) {
+    for (NSString *key in [_misses allKeys]) {
         NSNumber *missTime = _misses[key];
         if (([[NSDate date] timeIntervalSince1970] - [missTime doubleValue]) > threshold)
             [_misses removeObjectForKey:key];
