@@ -748,7 +748,13 @@
     if (order == nil) order = [self defaultOrderingPropertyName];
     if (order == nil) return objects; // no sort for this key
     
-    NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:order ascending:NO];
+    BOOL ascending = NO;
+    if ([order characterAtIndex:0] == '-') {
+        ascending = YES;
+        order = [order substringFromIndex:1];
+    }
+    
+    NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:order ascending:ascending];
     return [objects sortedArrayUsingDescriptors:@[descriptor]];
 }
 
