@@ -501,13 +501,21 @@
                    params:(NSDictionary *)params
                completion:(JPDataRequestBlock)requestBlock
 {
+    NSString *baseString = [[self baseURL] absoluteString];
+    NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@%@", baseString, endpoint]];
+    [self requestWithMethod:method url:url params:params completion:requestBlock];
+}
+
+- (void)requestWithMethod:(NSString *)method
+                      url:(NSURL *)url
+                   params:(NSDictionary *)params
+               completion:(JPDataRequestBlock)requestBlock
+{
     // Discard empty params
     if (params && [params count] < 1)
         params = nil;
     
-    // Construct URL
-    NSString *baseString = [[self baseURL] absoluteString];
-    NSMutableString *urlString = [NSMutableString stringWithFormat:@"%@%@", baseString, endpoint];
+    NSMutableString *urlString = [NSMutableString stringWithString:[url absoluteString]];
     
     // GET parameters
     if ([method isEqualToString:@"GET"] && params) {
@@ -518,7 +526,7 @@
         }
     }
     
-    NSURL *url = [NSURL URLWithString:urlString];
+    url = [NSURL URLWithString:urlString];
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url];
     [request setHTTPMethod:method];
     

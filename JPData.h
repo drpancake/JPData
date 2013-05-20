@@ -71,9 +71,15 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 - (void)clearCache; // wipe cache of all keys
 - (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data;
 
-// Helper method for miscellaneous API calls
+// Helper methods for miscellaneous API calls
+
 - (void)requestWithMethod:(NSString *)method
                  endpoint:(NSString *)endpoint
+                   params:(NSDictionary *)params
+               completion:(JPDataRequestBlock)requestBlock;
+
+- (void)requestWithMethod:(NSString *)method
+                      url:(NSURL *)url
                    params:(NSDictionary *)params
                completion:(JPDataRequestBlock)requestBlock;
 
