@@ -756,7 +756,13 @@
     if (order == nil) order = [self defaultOrderingPropertyName];
     if (order == nil) return objects; // no sort for this key
     
-    NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:order ascending:NO];
+    BOOL ascending = NO;
+    if ([order characterAtIndex:0] == '-') {
+        ascending = YES;
+        order = [order substringFromIndex:1];
+    }
+    
+    NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:order ascending:ascending];
     return [objects sortedArrayUsingDescriptors:@[descriptor]];
 }
 
@@ -776,7 +782,7 @@
 {
     // Discard dead cache entries older than two weeks
     int threshold = 3600 * 24 * 14;
-    for (NSString *key in _misses) {
+    for (NSString *key in [_misses allKeys]) {
         NSNumber *missTime = _misses[key];
         if (([[NSDate date] timeIntervalSince1970] - [missTime doubleValue]) > threshold)
             [_misses removeObjectForKey:key];
