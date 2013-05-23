@@ -19,12 +19,9 @@
 @protocol JPDataDelegate <NSObject>
 @optional
 
-- (void)data:(JPData *)data didReceiveObjects:(NSArray *)objects more:(BOOL)more;
-- (void)data:(JPData *)data didReceiveObject:(id)object; // only called when fetch: is used
-
-// Cached but stale data, so expect a another call to didReceiveResult: soon afterwards
-- (void)data:(JPData *)data didReceiveStaleObjects:(NSArray *)objects;
-- (void)data:(JPData *)data didReceiveStaleObject:(id)object; // only called when fetch: is used
+// Note: if stale=YES, expect another call to follow with fresh objects
+- (void)data:(JPData *)data didReceiveObjects:(NSArray *)objects more:(BOOL)more stale:(BOOL)stale;
+- (void)data:(JPData *)data didReceiveObject:(id)object stale:(BOOL)stale;
 
 - (void)data:(JPData *)data didFailWithError:(NSError *)error;
 

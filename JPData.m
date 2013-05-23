@@ -272,19 +272,14 @@
     if (append == NO && (cachedObjects && [cachedObjects count] > 0)) {
         NSArray *sorted = [self sortModelObjects:cachedObjects withMapping:mappingDict];
         
-        if (stale) {
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveStaleObjects:)])
-                [delegate data:self didReceiveStaleObjects:sorted];
-        } else {
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:)]) {
-                [delegate data:self didReceiveObjects:sorted more:NO];
-            } else if (block) {
-                block(sorted, NO, nil);
-            }
-            
-            // The cache is fresh so we don't need to do anything else
-            return;
+        if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:stale:)]) {
+            [delegate data:self didReceiveObjects:sorted more:NO stale:stale];
+        } else if (block && !stale) {
+            block(sorted, NO, nil);
         }
+        
+        // The cache is fresh so we don't need to do anything else
+        if (!stale) return;
     }
     
     /*
@@ -350,8 +345,8 @@
             BOOL more = [self serverHasMoreAfterResult:result];
             
             NSArray *sorted = [self sortModelObjects:newObjects withMapping:mappingDict];
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:)]) {
-                [delegate data:self didReceiveObjects:sorted more:more];
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:stale:)]) {
+                [delegate data:self didReceiveObjects:sorted more:more stale:NO];
             } else if (block) {
                 block(sorted, more, nil);
             }
@@ -393,19 +388,14 @@
     // If we have an object stored in the cache for this key, then send it straight to our delegate
     
     if (cachedObject) {
-        if (stale) {
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveStaleObject:)])
-                [delegate data:self didReceiveStaleObject:cachedObject];
-        } else {
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:)]) {
-                [delegate data:self didReceiveObject:cachedObject];
-            } else if (block) {
-                block(cachedObject, nil);
-            }
-            
-            // The cache is fresh so we don't need to do anything else
-            return;
+        if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:stale:)]) {
+            [delegate data:self didReceiveObject:cachedObject stale:stale];
+        } else if (block && !stale) {
+            block(cachedObject, nil);
         }
+        
+        // The cache is fresh so we don't need to do anything else
+        if (!stale) return;
     }
     
     /*
@@ -471,7 +461,7 @@
             [self setMissTimeForKey:key withID:id_];
             
             if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:)]) {
-                [delegate data:self didReceiveObject:object];
+                [delegate data:self didReceiveObject:object stale:NO];
             } else if (block) {
                 block(object, nil);
             }
