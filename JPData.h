@@ -51,6 +51,9 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
   Fetch multiple objects.
  
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
+ 
+  The method fetchMany:withParams:block: doesn't return stale cached objects (otherwise the block would have to be
+  called twice). The delegate versions therefore might return two sets of objects.
 */
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
@@ -61,6 +64,9 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
   resulting in an URL of the form:
  
   http://somedomain.com/<endpoint>/<id>
+ 
+  The method fetch:withID:params:block: doesn't return stale cached objects (otherwise the block would have to be
+  called twice). The delegate versions therefore might return two sets of objects.
  
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
  */
