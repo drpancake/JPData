@@ -143,8 +143,13 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
  */
 - (BOOL)serverHasMoreAfterResult:(NSDictionary *)result;
 
-// Subclasses may override this to handle certain HTTP status codes, e.g. 401 or 404.
-- (void)didReceiveHTTPStatusCode:(NSInteger)statusCode;
+/*
+ Subclasses may override this to handle certain content or HTTP status codes, e.g. 401 or 404.
+ If an NSError object is returned it is passed to the block or delegate passed by caller.
+ 
+ Default implementation returns nil.
+ */
+- (NSError *)didReceiveResult:(NSDictionary *)result withHTTPStatusCode:(NSInteger)statusCode;
 
 /*
   Subclasses can use this to handle special cases, where mapping from JSON key to model field is not

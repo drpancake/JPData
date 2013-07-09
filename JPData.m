@@ -229,9 +229,9 @@
     return NO;
 }
 
-- (void)didReceiveHTTPStatusCode:(NSInteger)statusCode
+- (NSError *)didReceiveResult:(NSDictionary *)result withHTTPStatusCode:(NSInteger)statusCode
 {
-    
+    return nil;
 }
 
 - (BOOL)willSetValue:(id)value forProperty:(NSString *)propertyName inObject:(NSManagedObject *)object
@@ -548,25 +548,35 @@
     [NSURLConnection sendAsynchronousRequest:request
                                        queue:[NSOperationQueue mainQueue]
                            completionHandler:^(NSURLResponse *response, NSData *responseData, NSError *error) {
-                               NSInteger statusCode = ((NSHTTPURLResponse *)response).statusCode;
-                               if (error && error.code == NSURLErrorUserCancelledAuthentication) statusCode = 401;
-                               
-                               [self didReceiveHTTPStatusCode:statusCode];
-                               
-                               // Hide the spinner
                                app.networkActivityIndicatorVisible = NO;
+                               NSInteger statusCode = ((NSHTTPURLResponse *)response).statusCode;
+                               
+                               // Special case for 401 error
+                               if (error && error.code == NSURLErrorUserCancelledAuthentication) {
+                                   statusCode = 401;
+                                   error = nil;
+                               }
+                               
+                               // If there was an error, don't go any further
+                               if (error) {
+                                   requestBlock(nil, error);
+                                   return;
+                               }
+                               
+                               // Try to convert to JSON
+                               NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+                               NSDictionary *result = [_parser objectWithString:text];
+                               
+                               // Allow subclass to hook in here
+                               NSError *_error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
+                               
+                               if (_error) {
+                                   requestBlock(nil, _error);
+                                   return;
+                               }
                                
                                if (statusCode == 200) {
-                                   
-                                   NSDictionary *result = nil;
-                                   if (!error) {
-                                       // JSON -> dictionary
-                                       NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-                                       result = [_parser objectWithString:text];
-                                   }
-                                   
                                    requestBlock(result, nil);
-                                   
                                } else if (statusCode == 400 || statusCode == 404 || statusCode == 500) {
                                    NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                    NSDictionary *json = [_parser objectWithString:text];
@@ -580,7 +590,6 @@
                                    NSDictionary *userInfo = @{NSLocalizedDescriptionKey : message};
                                    error = [NSError errorWithDomain:@"JPData" code:1 userInfo:userInfo];
                                    requestBlock(nil, error);
-                                   
                                } else {
                                    requestBlock(nil, error);
                                }
