@@ -758,14 +758,22 @@
     if (order == nil) order = [self defaultOrderingPropertyName];
     if (order == nil) return objects; // no sort for this key
     
-    BOOL ascending = NO;
-    if ([order characterAtIndex:0] == '-') {
-        ascending = YES;
-        order = [order substringFromIndex:1];
+    NSArray *parts = [order componentsSeparatedByString:@","];
+    NSMutableArray *descriptors = [NSMutableArray array];
+    
+    for (__strong NSString *part in parts) {
+        
+        BOOL ascending = NO;
+        if ([part characterAtIndex:0] == '-') {
+            ascending = YES;
+            part = [part substringFromIndex:1];
+        }
+        
+        NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:part ascending:ascending];
+        [descriptors addObject:descriptor];
     }
     
-    NSSortDescriptor *descriptor = [NSSortDescriptor sortDescriptorWithKey:order ascending:ascending];
-    return [objects sortedArrayUsingDescriptors:@[descriptor]];
+    return [objects sortedArrayUsingDescriptors:descriptors];
 }
 
 - (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key
