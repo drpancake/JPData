@@ -244,6 +244,14 @@
     
 }
 
+- (NSString *)endpointForName:(NSString *)name
+{
+    @throw [NSException exceptionWithName:NSInternalInconsistencyException
+                                   reason:[NSString stringWithFormat:@"You must override %@ in a subclass if 'endpoint' not specified for a key.",
+                                           NSStringFromSelector(_cmd)]
+                                 userInfo:nil];
+}
+
 #pragma mark -
 #pragma mark Fetch methods
 
@@ -289,7 +297,10 @@
       In any case, we need to perform an API call.
     */
     
-    [self requestWithMethod:@"GET" endpoint:mappingDict[@"endpoint"] params:params completion:^(NSDictionary *result, NSError *error) {
+    NSString *endpoint = mappingDict[@"endpoint"];
+    if (endpoint == nil) endpoint = [self endpointForName:key];
+    
+    [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
             
             if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
@@ -406,6 +417,7 @@
      */
     
     NSString *endpoint = mappingDict[@"endpoint"];
+    if (endpoint == nil) endpoint = [self endpointForName:key];
     if (id_) endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {

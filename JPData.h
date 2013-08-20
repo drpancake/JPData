@@ -167,4 +167,11 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 */
 - (void)setValue:(id)value forSpecialProperty:(NSString *)propertyName inObject:(NSManagedObject *)object;
 
+/*
+  If an entry in 'keyMappings' has no "endpoint" key, subclasses should supply it with this method.
+  
+  Default implementation throws an exception.
+*/
+- (NSString *)endpointForName:(NSString *)name;
+
 @end
