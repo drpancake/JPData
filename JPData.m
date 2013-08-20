@@ -14,7 +14,8 @@
 
 // Only one of 'delegate' and 'block' should be passed in as arguments, never both
 - (void)_fetchMany:(NSString *)key
-        withParams:(NSDictionary *)params
+      withEndpoint:(NSString *)endpoint
+            params:(NSDictionary *)params
             append:(BOOL)append
           delegate:(id<JPDataDelegate>)delegate
              block:(JPDataFetchManyBlock)block;
@@ -256,7 +257,8 @@
 #pragma mark Fetch methods
 
 - (void)_fetchMany:(NSString *)key
-        withParams:(NSDictionary *)params
+      withEndpoint:(NSString *)endpoint
+            params:(NSDictionary *)params
             append:(BOOL)append
           delegate:(id<JPDataDelegate>)delegate
              block:(JPDataFetchManyBlock)block
@@ -297,8 +299,13 @@
       In any case, we need to perform an API call.
     */
     
-    NSString *endpoint = mappingDict[@"endpoint"];
-    if (endpoint == nil) endpoint = [self endpointForName:key];
+    if (!endpoint) {
+        if (mappingDict[@"endpoint"]) {
+            endpoint = mappingDict[@"endpoint"];
+        } else {
+            endpoint = [self endpointForName:key];
+        }
+    }
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
@@ -367,17 +374,27 @@
 
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
 {
-    [self _fetchMany:key withParams:params append:append delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:nil params:params append:append delegate:delegate block:nil];
 }
 
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
 {
-    [self _fetchMany:key withParams:params append:NO delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:delegate block:nil];
+}
+
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+{
+    [self _fetchMany:key withEndpoint:endpoint params:params append:NO delegate:delegate block:nil];
+}
+
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
+{
+    [self _fetchMany:key withEndpoint:endpoint params:params append:append delegate:delegate block:nil];
 }
 
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion
 {
-    [self _fetchMany:key withParams:params append:NO delegate:nil block:completion];
+    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:nil block:completion];
 }
 
 - (void)_fetch:(NSString *)key

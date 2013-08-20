@@ -54,6 +54,8 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 */
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion; // note: only fresh objects returned
 
 /*
