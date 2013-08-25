@@ -69,8 +69,9 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
  
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
  */
-- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
-- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion;
 
 - (void)clearCacheForKey:(NSString *)key;
 - (void)clearCache; // wipe cache of all keys

@@ -22,7 +22,8 @@
 
 // Only one of 'delegate' and 'block' should be passed in as arguments, never both
 - (void)_fetch:(NSString *)key
-        withID:(NSNumber *)id_
+        withID:(NSString *)id_
+      endpoint:(NSString *)endpoint
         params:(NSDictionary *)params
       delegate:(id<JPDataDelegate>)delegate
          block:(JPDataFetchBlock)block;
@@ -36,18 +37,18 @@
   Returns nil if no objects are cached. 'stale' is a pointer to a BOOL and
   indicates that returned objects are old/stale.
 */
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSNumber *)id_;
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_;
 - (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale;
-- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSNumber *)id_ stale:(BOOL *)stale;
+- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale;
 
 // If mapping contains the key 'order' the objects will be sorted using that as a keyPath
 - (NSArray *)sortModelObjects:(NSArray *)objects withMapping:(NSDictionary *)mappingDict;
 
 // All times in Unix format
 - (NSNumber *)lastMissTimeForKey:(NSString *)key;
-- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSNumber *)id_;
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_;
 - (void)setMissTimeForKey:(NSString *)key; // sets it to now
-- (void)setMissTimeForKey:(NSString *)key withID:(NSNumber *)id_; // sets it to now
+- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_; // sets it to now
 
 // How long this key's data is fresh for
 - (NSInteger)cacheTimeForKey:(NSString *)key;
@@ -398,7 +399,8 @@
 }
 
 - (void)_fetch:(NSString *)key
-        withID:(NSNumber *)id_
+        withID:(NSString *)id_
+      endpoint:(NSString *)endpoint
         params:(NSDictionary *)params
       delegate:(id<JPDataDelegate>)delegate
          block:(JPDataFetchBlock)block
@@ -433,9 +435,14 @@
      In any case, we need to perform an API call.
      */
     
-    NSString *endpoint = mappingDict[@"endpoint"];
-    if (endpoint == nil) endpoint = [self endpointForName:key];
-    if (id_) endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
+    if (endpoint == nil) {
+        if (id_) {
+            endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
+        } else {
+            endpoint = mappingDict[@"endpoint"];
+            if (endpoint == nil) endpoint = [self endpointForName:key];
+        }
+    }
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
         if (error) {
@@ -489,7 +496,7 @@
             
             [self setMissTimeForKey:key withID:id_];
             
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:)]) {
+            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:stale:)]) {
                 [delegate data:self didReceiveObject:object stale:NO];
             } else if (block) {
                 block(object, nil);
@@ -502,14 +509,19 @@
     }];
 }
 
-- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
 {
-    [self _fetch:key withID:id_ params:params delegate:delegate block:nil];
+    [self _fetch:key withID:id_ endpoint:nil params:params delegate:delegate block:nil];
 }
 
-- (void)fetch:(NSString *)key withID:(NSNumber *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion
+- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
 {
-    [self _fetch:key withID:id_ params:params delegate:nil block:completion];
+    [self _fetch:key withID:id_ endpoint:endpoint params:params delegate:delegate block:nil];
+}
+
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion
+{
+    [self _fetch:key withID:id_ endpoint:nil params:params delegate:nil block:completion];
 }
 
 #pragma mark -
@@ -681,7 +693,7 @@
     return _misses[key];
 }
 
-- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSNumber *)id_
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_
 {
     NSString *k = key;
     if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
@@ -697,7 +709,7 @@
     [_def synchronize];
 }
 
-- (void)setMissTimeForKey:(NSString *)key withID:(NSNumber *)id_
+- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_
 {
     NSString *k = key;
     if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
@@ -708,7 +720,7 @@
     [_def synchronize];
 }
 
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSNumber *)id_
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_
 {
     *stale = NO;
     
@@ -776,7 +788,7 @@
     return [self cachedModelObjectsForKey:key stale:stale withID:nil];
 }
 
-- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSNumber *)id_ stale:(BOOL *)stale
+- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale
 {
     return [[self cachedModelObjectsForKey:key stale:stale withID:id_] lastObject];
 }
