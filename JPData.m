@@ -591,8 +591,9 @@
     UIApplication *app = [UIApplication sharedApplication];
     app.networkActivityIndicatorVisible = YES;
     
+    NSOperationQueue *queue = [[NSOperationQueue alloc] init];
     [NSURLConnection sendAsynchronousRequest:request
-                                       queue:[NSOperationQueue mainQueue]
+                                       queue:queue
                            completionHandler:^(NSURLResponse *response, NSData *responseData, NSError *error) {
                                app.networkActivityIndicatorVisible = NO;
                                NSInteger statusCode = ((NSHTTPURLResponse *)response).statusCode;
@@ -605,7 +606,9 @@
                                
                                // If there was an error, don't go any further
                                if (error) {
-                                   requestBlock(nil, error);
+                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       requestBlock(nil, error);
+                                   });
                                    return;
                                }
                                
@@ -617,12 +620,16 @@
                                NSError *_error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
                                
                                if (_error) {
-                                   requestBlock(nil, _error);
+                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       requestBlock(nil, _error);
+                                   });
                                    return;
                                }
                                
                                if (statusCode == 200) {
-                                   requestBlock(result, nil);
+                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       requestBlock(result, nil);
+                                   });
                                } else if (statusCode == 400 || statusCode == 404 || statusCode == 500) {
                                    NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                    NSDictionary *json = [_parser objectWithString:text];
@@ -635,9 +642,15 @@
                                    
                                    NSDictionary *userInfo = @{NSLocalizedDescriptionKey : message};
                                    error = [NSError errorWithDomain:@"JPData" code:1 userInfo:userInfo];
-                                   requestBlock(nil, error);
+                                   
+                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       requestBlock(nil, error);
+                                   });
+                                   
                                } else {
-                                   requestBlock(nil, error);
+                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       requestBlock(nil, error);
+                                   });
                                }
                            }];
 }
