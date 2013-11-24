@@ -663,13 +663,13 @@
 #pragma mark -
 #pragma mark Cache control
 
-- (void)clearCacheForKey:(NSString *)key
+- (void)clearCacheForKey:(NSString *)key cacheKey:(NSString *)cacheKey
 {
     // Clear any persisted objects
     BOOL stale;
-    NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:nil];
+    NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:cacheKey];
     for (NSManagedObject *object in objects) {
-        [self disassociateObject:object withKey:key cacheKey:nil];
+        [self disassociateObject:object withKey:key cacheKey:cacheKey];
         [self.managedObjectContext deleteObject:object];
     }
     
@@ -681,10 +681,15 @@
     [_def synchronize];
 }
 
+- (void)clearCacheForKey:(NSString *)key
+{
+    [self clearCacheForKey:key cacheKey:nil];
+}
+
 - (void)clearCache
 {
     for (NSString *key in _mapping)
-        [self clearCacheForKey:key];
+        [self clearCacheForKey:key cacheKey:nil];
 }
 
 #pragma mark -

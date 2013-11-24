@@ -80,6 +80,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 - (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion cacheKey:(NSString *)cacheKey;
 
 - (void)clearCacheForKey:(NSString *)key;
+- (void)clearCacheForKey:(NSString *)key cacheKey:(NSString *)cacheKey; // note: if cacheKey was used for fetching, cacheKey parameter must be passed in here to clear it
 - (void)clearCache; // wipe cache of all keys
 - (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data;
 
