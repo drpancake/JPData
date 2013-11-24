@@ -60,7 +60,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
 - (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate  cacheKey:(NSString *)cacheKey;
 - (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion cacheKey:(NSString *)cacheKey; // note: only fresh objects returned
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params cacheKey:(NSString *)cacheKey block:(JPDataFetchManyBlock)completion; // note: only fresh objects returned
 
 /*
   Fetch a single object. The given ID is appended to the endpoint associated with this key,
@@ -77,7 +77,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
  */
 - (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
 - (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion cacheKey:(NSString *)cacheKey;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params cacheKey:(NSString *)cacheKey block:(JPDataFetchBlock)completion;
 
 - (void)clearCacheForKey:(NSString *)key;
 - (void)clearCacheForKey:(NSString *)key cacheKey:(NSString *)cacheKey; // note: if cacheKey was used for fetching, cacheKey parameter must be passed in here to clear it

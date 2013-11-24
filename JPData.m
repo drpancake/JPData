@@ -397,7 +397,7 @@
     [self _fetchMany:key withEndpoint:endpoint params:params append:append delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion cacheKey:(NSString *)cacheKey
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params cacheKey:(NSString *)cacheKey block:(JPDataFetchManyBlock)completion
 {
     [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:nil block:completion cacheKey:cacheKey];
 }
@@ -529,7 +529,7 @@
     [self _fetch:key withID:id_ endpoint:endpoint params:params delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion cacheKey:(NSString *)cacheKey
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params cacheKey:(NSString *)cacheKey block:(JPDataFetchBlock)completion
 {
     [self _fetch:key withID:id_ endpoint:nil params:params delegate:nil block:completion cacheKey:cacheKey];
 }
