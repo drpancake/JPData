@@ -441,12 +441,9 @@
      */
     
     if (endpoint == nil) {
-        if (id_) {
-            endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
-        } else {
-            endpoint = mappingDict[@"endpoint"];
-            if (endpoint == nil) endpoint = [self endpointForName:key];
-        }
+        endpoint = mappingDict[@"endpoint"];
+        if (endpoint == nil) endpoint = [self endpointForName:key];
+        if (id_) endpoint = [NSString stringWithFormat:@"%@/%@", endpoint, id_];
     }
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
