@@ -61,8 +61,9 @@
 // Clean up any orphaned IDs which no longer exist as objects in Core Data
 - (void)cleanManagedObjectKeys;
 
-- (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key;
-- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key; // does the opposite of above
+- (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key cacheKey:(NSString *)cacheKey;
+- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key cacheKey:(NSString *)cacheKey; // does the opposite of above
+- (NSArray *)objectIdentifiersWithKey:(NSString *)key cacheKey:(NSString *)cacheKey;
 
 // Helper
 - (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate orBlock:(JPDataFetchBlock)block;
@@ -327,7 +328,7 @@
             
             if (!append) {
                 for (NSManagedObject *object in cachedObjects) {
-                    [self disassociateObject:object withKey:key];
+                    [self disassociateObject:object withKey:key cacheKey:cacheKey];
                     [_managedObjectContext deleteObject:object];
                 }
             } else if (cachedObjects != nil) {
@@ -356,7 +357,7 @@
             
             // Keep track of which key these objects are associated with (must be done after saving)
             for (NSManagedObject *object in newObjects)
-                [self associateObject:object withKey:key];
+                [self associateObject:object withKey:key cacheKey:cacheKey];
             
             // Update cache miss time, even if we're appending objects to possibly stale cached objects --
             [self setMissTimeForKey:key withCacheKey:cacheKey];
@@ -476,7 +477,7 @@
         @try {
             // Delete cached object if there is one
             if (cachedObject) {
-                [self disassociateObject:cachedObject withKey:key];
+                [self disassociateObject:cachedObject withKey:key cacheKey:cacheKey];
                 [self.managedObjectContext deleteObject:cachedObject];
             }
             
@@ -499,7 +500,7 @@
             [_managedObjectContext save:nil];
             
             // Keep track of which key this object is associated with (must be done after saving)
-            [self associateObject:object withKey:key];
+            [self associateObject:object withKey:key cacheKey:cacheKey];
             
             // -- Update cache miss time and send to delegate --
             
@@ -668,7 +669,7 @@
     BOOL stale;
     NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:nil];
     for (NSManagedObject *object in objects) {
-        [self disassociateObject:object withKey:key];
+        [self disassociateObject:object withKey:key cacheKey:nil];
         [self.managedObjectContext deleteObject:object];
     }
     
@@ -790,7 +791,7 @@
     NSMutableArray *objects = [NSMutableArray array];
     for (NSString *entityName in entities) {
         
-        NSArray *objectIDs = _keyToManagedObjectMapping[key];
+        NSArray *objectIDs = [self objectIdentifiersWithKey:key cacheKey:cacheKey];
         if (objectIDs == nil || [objectIDs count] < 1) continue;
         
         NSFetchRequest *request = [NSFetchRequest fetchRequestWithEntityName:entityName];
@@ -906,7 +907,7 @@
     [_def synchronize];
 }
 
-- (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key
+- (void)associateObject:(NSManagedObject *)object withKey:(NSString *)key cacheKey:(NSString *)cacheKey
 {
     /*
       This method associates the Core Data assigned UUID of 'object' with the key that was used
@@ -914,31 +915,45 @@
       used across multiple keys.
     */
     
-    NSArray *idStrings = _keyToManagedObjectMapping[key];
+    NSString *k = key;
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+    
+    NSArray *idStrings = _keyToManagedObjectMapping[k];
     NSMutableArray *newStrings = [NSMutableArray array];
     if (idStrings != nil) [newStrings addObjectsFromArray:idStrings];
     
     [newStrings addObject:[object.objectID.URIRepresentation absoluteString]];
-    _keyToManagedObjectMapping[key] = newStrings;
+    _keyToManagedObjectMapping[k] = newStrings;
     
     // Persist
     [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
     [_def synchronize];
 }
 
-- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key
+- (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key cacheKey:(NSString *)cacheKey
 {
-    if (!_keyToManagedObjectMapping[key]) return;
+    NSString *k = key;
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+    
+    if (!_keyToManagedObjectMapping[k]) return;
     
     NSString *idString = [object.objectID.URIRepresentation absoluteString];
-    NSMutableArray *idStrings = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[key]];
+    NSMutableArray *idStrings = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[k]];
     if (idStrings) [idStrings removeObject:idString];
     
-    _keyToManagedObjectMapping[key] = [NSArray arrayWithArray:idStrings];
+    _keyToManagedObjectMapping[k] = [NSArray arrayWithArray:idStrings];
     
     // Persist
     [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
     [_def synchronize];
+}
+
+- (NSArray *)objectIdentifiersWithKey:(NSString *)key cacheKey:(NSString *)cacheKey
+{
+    NSString *k = key;
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+    
+    return _keyToManagedObjectMapping[k];
 }
 
 - (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate orBlock:(JPDataFetchBlock)block
