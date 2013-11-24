@@ -45,10 +45,10 @@
 - (NSArray *)sortModelObjects:(NSArray *)objects withMapping:(NSDictionary *)mappingDict;
 
 // All times in Unix format
-- (NSNumber *)lastMissTimeForKey:(NSString *)key;
-- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_;
-- (void)setMissTimeForKey:(NSString *)key; // sets it to now
-- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_; // sets it to now
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withCacheKey:(NSString *)cacheKey;
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_ cacheKey:(NSString *)cacheKey;
+- (void)setMissTimeForKey:(NSString *)key withCacheKey:(NSString *)cacheKey; // sets it to now
+- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_ cacheKey:(NSString *)cacheKey; // sets it to now
 
 // How long this key's data is fresh for
 - (NSInteger)cacheTimeForKey:(NSString *)key;
@@ -356,7 +356,7 @@
                 [self associateObject:object withKey:key];
             
             // Update cache miss time, even if we're appending objects to possibly stale cached objects --
-            [self setMissTimeForKey:key];
+            [self setMissTimeForKey:key withCacheKey:nil];
             
             // -- Send objects to delegate --
             
@@ -499,7 +499,7 @@
             
             // -- Update cache miss time and send to delegate --
             
-            [self setMissTimeForKey:key withID:id_];
+            [self setMissTimeForKey:key withID:id_ cacheKey:nil];
             
             if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:stale:)]) {
                 [delegate data:self didReceiveObject:object stale:NO];
@@ -706,31 +706,38 @@
     return cacheTime;
 }
 
-- (NSNumber *)lastMissTimeForKey:(NSString *)key
-{
-    return _misses[key];
-}
-
-- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withCacheKey:(NSString *)cacheKey
 {
     NSString *k = key;
-    if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", key, cacheKey];
     return _misses[k];
 }
 
-- (void)setMissTimeForKey:(NSString *)key
+- (NSNumber *)lastMissTimeForKey:(NSString *)key withID:(NSString *)id_ cacheKey:(NSString *)cacheKey
 {
-    _misses[key] = @([[NSDate date] timeIntervalSince1970]);
+    NSString *k = key;
+    if (id_) k = [NSString stringWithFormat:@"%@_%@", k, id_];
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+    return _misses[k];
+}
+
+- (void)setMissTimeForKey:(NSString *)key withCacheKey:(NSString *)cacheKey
+{
+    NSString *k = key;
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+    
+    _misses[k] = @([[NSDate date] timeIntervalSince1970]);
 
     // Persist
     [_def setObject:_misses forKey:JP_DATA_MISSES_KEY];
     [_def synchronize];
 }
 
-- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_
+- (void)setMissTimeForKey:(NSString *)key withID:(NSString *)id_ cacheKey:(NSString *)cacheKey
 {
     NSString *k = key;
-    if (id_) k = [NSString stringWithFormat:@"%@_%@", key, id_];
+    if (id_) k = [NSString stringWithFormat:@"%@_%@", k, id_];
+    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
     _misses[k] = @([[NSDate date] timeIntervalSince1970]);
     
     // Persist
@@ -744,9 +751,9 @@
     
     NSNumber *lastFetchTime = nil;
     if (id_) {
-        lastFetchTime = [self lastMissTimeForKey:key withID:id_];
+        lastFetchTime = [self lastMissTimeForKey:key withID:id_ cacheKey:nil];
     } else {
-        lastFetchTime = [self lastMissTimeForKey:key];
+        lastFetchTime = [self lastMissTimeForKey:key withCacheKey:nil];
     }
     
     if (lastFetchTime) {
