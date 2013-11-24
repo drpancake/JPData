@@ -51,12 +51,16 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
  
   The method fetchMany:withParams:block: doesn't return stale cached objects (otherwise the block would have to be
   called twice). The delegate versions therefore might return two sets of objects.
+ 
+  If 'cacheKey' is supplied, cached objects will only be returned that were originally fetched with the same value of 'cacheKey'. This
+  is useful when you're fetching different objects with the same 'key' but you don't want their caching to interfere.
 */
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
-- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
-- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate;
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion; // note: only fresh objects returned
+
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate  cacheKey:(NSString *)cacheKey;
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion cacheKey:(NSString *)cacheKey; // note: only fresh objects returned
 
 /*
   Fetch a single object. The given ID is appended to the endpoint associated with this key,
@@ -67,11 +71,13 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
   The method fetch:withID:params:block: doesn't return stale cached objects (otherwise the block would have to be
   called twice). The delegate versions therefore might return two sets of objects.
  
+  If 'cacheKey' is supplied, a cached object will only be returned that was originally fetched with the same value of 'cacheKey'.
+ 
   Note: given 'key' must be present as a key in the dictionary returned by the abstract method 'keyMappings'.
  */
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
-- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate;
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey;
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion cacheKey:(NSString *)cacheKey;
 
 - (void)clearCacheForKey:(NSString *)key;
 - (void)clearCache; // wipe cache of all keys

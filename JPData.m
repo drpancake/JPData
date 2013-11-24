@@ -18,7 +18,8 @@
             params:(NSDictionary *)params
             append:(BOOL)append
           delegate:(id<JPDataDelegate>)delegate
-             block:(JPDataFetchManyBlock)block;
+             block:(JPDataFetchManyBlock)block
+          cacheKey:(NSString *)cacheKey;
 
 // Only one of 'delegate' and 'block' should be passed in as arguments, never both
 - (void)_fetch:(NSString *)key
@@ -26,7 +27,8 @@
       endpoint:(NSString *)endpoint
         params:(NSDictionary *)params
       delegate:(id<JPDataDelegate>)delegate
-         block:(JPDataFetchBlock)block;
+         block:(JPDataFetchBlock)block
+      cacheKey:(NSString *)cacheKey;
 
 - (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key;
 
@@ -37,9 +39,9 @@
   Returns nil if no objects are cached. 'stale' is a pointer to a BOOL and
   indicates that returned objects are old/stale.
 */
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_;
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale;
-- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale;
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_ cacheKey:(NSString *)cacheKey;
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale cacheKey:(NSString *)cacheKey;
+- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale cacheKey:(NSString *)cacheKey;
 
 // If mapping contains the key 'order' the objects will be sorted using that as a keyPath
 - (NSArray *)sortModelObjects:(NSArray *)objects withMapping:(NSDictionary *)mappingDict;
@@ -263,6 +265,7 @@
             append:(BOOL)append
           delegate:(id<JPDataDelegate>)delegate
              block:(JPDataFetchManyBlock)block
+          cacheKey:(NSString *)cacheKey
 {
     NSDictionary *mappingDict = _mapping[key];
     if (mappingDict == nil) {
@@ -272,7 +275,7 @@
     
     // Attempt to fetch cached objects for this key
     BOOL stale;
-    NSArray *cachedObjects = [self cachedModelObjectsForKey:key stale:&stale];
+    NSArray *cachedObjects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:cacheKey];
     
     /*
       If we have any objects stored in the cache for this key, then send them straight to our delegate
@@ -356,7 +359,7 @@
                 [self associateObject:object withKey:key];
             
             // Update cache miss time, even if we're appending objects to possibly stale cached objects --
-            [self setMissTimeForKey:key withCacheKey:nil];
+            [self setMissTimeForKey:key withCacheKey:cacheKey];
             
             // -- Send objects to delegate --
             
@@ -373,29 +376,29 @@
     }];
 }
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetchMany:key withEndpoint:nil params:params append:append delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:nil params:params append:append delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetchMany:key withEndpoint:endpoint params:params append:NO delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:endpoint params:params append:NO delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate
+- (void)fetchMany:(NSString *)key withEndpoint:(NSString *)endpoint params:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetchMany:key withEndpoint:endpoint params:params append:append delegate:delegate block:nil];
+    [self _fetchMany:key withEndpoint:endpoint params:params append:append delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion
+- (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params block:(JPDataFetchManyBlock)completion cacheKey:(NSString *)cacheKey
 {
-    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:nil block:completion];
+    [self _fetchMany:key withEndpoint:nil params:params append:NO delegate:nil block:completion cacheKey:cacheKey];
 }
 
 - (void)_fetch:(NSString *)key
@@ -404,6 +407,7 @@
         params:(NSDictionary *)params
       delegate:(id<JPDataDelegate>)delegate
          block:(JPDataFetchBlock)block
+      cacheKey:(NSString *)cacheKey
 {
     NSDictionary *mappingDict = _mapping[key];
     if (mappingDict == nil) {
@@ -413,7 +417,7 @@
     
     // Attempt to fetch cached objects for this key
     BOOL stale;
-    NSManagedObject *cachedObject = [self cachedModelObjectForKey:key withID:id_ stale:&stale];
+    NSManagedObject *cachedObject = [self cachedModelObjectForKey:key withID:id_ stale:&stale cacheKey:cacheKey];
     
     // If we have an object stored in the cache for this key, then send it straight to our delegate
     
@@ -499,7 +503,7 @@
             
             // -- Update cache miss time and send to delegate --
             
-            [self setMissTimeForKey:key withID:id_ cacheKey:nil];
+            [self setMissTimeForKey:key withID:id_ cacheKey:cacheKey];
             
             if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObject:stale:)]) {
                 [delegate data:self didReceiveObject:object stale:NO];
@@ -514,19 +518,19 @@
     }];
 }
 
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetch:key withID:id_ endpoint:nil params:params delegate:delegate block:nil];
+    [self _fetch:key withID:id_ endpoint:nil params:params delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate
+- (void)fetch:(NSString *)key withID:(NSString *)id_ endpoint:(NSString *)endpoint params:(NSDictionary *)params delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
 {
-    [self _fetch:key withID:id_ endpoint:endpoint params:params delegate:delegate block:nil];
+    [self _fetch:key withID:id_ endpoint:endpoint params:params delegate:delegate block:nil cacheKey:cacheKey];
 }
 
-- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion
+- (void)fetch:(NSString *)key withID:(NSString *)id_ params:(NSDictionary *)params block:(JPDataFetchBlock)completion cacheKey:(NSString *)cacheKey
 {
-    [self _fetch:key withID:id_ endpoint:nil params:params delegate:nil block:completion];
+    [self _fetch:key withID:id_ endpoint:nil params:params delegate:nil block:completion cacheKey:cacheKey];
 }
 
 #pragma mark -
@@ -662,7 +666,7 @@
 {
     // Clear any persisted objects
     BOOL stale;
-    NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale];
+    NSArray *objects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:nil];
     for (NSManagedObject *object in objects) {
         [self disassociateObject:object withKey:key];
         [self.managedObjectContext deleteObject:object];
@@ -745,15 +749,15 @@
     [_def synchronize];
 }
 
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale withID:(NSString *)id_ cacheKey:(NSString *)cacheKey
 {
     *stale = NO;
     
     NSNumber *lastFetchTime = nil;
     if (id_) {
-        lastFetchTime = [self lastMissTimeForKey:key withID:id_ cacheKey:nil];
+        lastFetchTime = [self lastMissTimeForKey:key withID:id_ cacheKey:cacheKey];
     } else {
-        lastFetchTime = [self lastMissTimeForKey:key withCacheKey:nil];
+        lastFetchTime = [self lastMissTimeForKey:key withCacheKey:cacheKey];
     }
     
     if (lastFetchTime) {
@@ -808,14 +812,14 @@
     return nil;
 }
 
-- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale
+- (NSArray *)cachedModelObjectsForKey:(NSString *)key stale:(BOOL *)stale cacheKey:(NSString *)cacheKey
 {
-    return [self cachedModelObjectsForKey:key stale:stale withID:nil];
+    return [self cachedModelObjectsForKey:key stale:stale withID:nil cacheKey:cacheKey];
 }
 
-- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale
+- (NSManagedObject *)cachedModelObjectForKey:(NSString *)key withID:(NSString *)id_ stale:(BOOL *)stale cacheKey:(NSString *)cacheKey
 {
-    return [[self cachedModelObjectsForKey:key stale:stale withID:id_] lastObject];
+    return [[self cachedModelObjectsForKey:key stale:stale withID:id_ cacheKey:cacheKey] lastObject];
 }
 
 - (NSArray *)sortModelObjects:(NSArray *)objects withMapping:(NSDictionary *)mappingDict
