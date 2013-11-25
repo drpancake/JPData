@@ -279,6 +279,11 @@
              block:(JPDataFetchManyBlock)block
           cacheKey:(NSString *)cacheKey
 {
+    NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+    [formatter setDateFormat:@"HH:mm:ss.SSS"];
+    
+    NSLog(@"[%@] begin!", [formatter stringFromDate:[NSDate date]]);
+    
     NSDictionary *mappingDict = _mapping[key];
     if (mappingDict == nil) {
         [NSException raise:NSInternalInconsistencyException
@@ -288,6 +293,8 @@
     // Attempt to fetch cached objects for this key
     BOOL stale;
     NSArray *cachedObjects = [self cachedModelObjectsForKey:key stale:&stale cacheKey:cacheKey];
+    
+    NSLog(@"[%@] got cached", [formatter stringFromDate:[NSDate date]]);
     
     /*
       If we have any objects stored in the cache for this key, then send them straight to our delegate
@@ -308,6 +315,8 @@
         if (!stale) return;
     }
     
+    NSLog(@"[%@] sorting done", [formatter stringFromDate:[NSDate date]]);
+    
     /*
       At this point, either the cache was empty (i.e. this is the initial fetch for this key), the
       returned objects are stale and need updating OR append=YES and we're adding new objects.
@@ -324,6 +333,8 @@
     }
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
+        
+        NSLog(@"[%@] response", [formatter stringFromDate:[NSDate date]]);
         
         // Get off the main thread
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -863,13 +874,10 @@
         NSArray *results = [self.managedObjectContext executeFetchRequest:request error:nil];
         
         // Filter out objects where objectID doesn't match the key we're being queried for
-        
-        NSPredicate *predicate = [NSPredicate predicateWithBlock:^BOOL(id evaluatedObject, NSDictionary *bindings) {
-            NSManagedObject *object = evaluatedObject;
-            return [objectIDs containsObject:[object.objectID.URIRepresentation absoluteString]] == YES;
-        }];
-        
-        [objects addObjectsFromArray:[results filteredArrayUsingPredicate:predicate]];
+        for (NSManagedObject *object in results) {
+            if ([objectIDs containsObject:[object.objectID.URIRepresentation absoluteString]])
+                [objects addObject:object];
+        }
     }
     
     if ([objects count] > 0) return [NSArray arrayWithArray:objects];
