@@ -30,7 +30,9 @@
          block:(JPDataFetchBlock)block
       cacheKey:(NSString *)cacheKey;
 
-- (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key;
+- (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict
+                                             key:(NSString *)key
+                            managedObjectContext:(NSManagedObjectContext *)managedObjectContext;
 
 // Returns YES if elapsed duration between 'loadTime' and now has exceeded cache time given key
 - (BOOL)isCacheTimeExceededForTime:(NSDate *)loadTime withKey:(NSString *)key;
@@ -67,6 +69,8 @@
 
 // Helper
 - (void)sendErrorMessage:(NSString *)message toDelegate:(id<JPDataDelegate>)delegate orBlock:(JPDataFetchBlock)block;
+
+- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data managedObjectContext:(NSManagedObjectContext *)managedObjectContext;
 
 @end
 
@@ -115,8 +119,10 @@
     return instance;
 }
 
-- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data
+- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data managedObjectContext:(NSManagedObjectContext *)managedObjectContext
 {
+    if (managedObjectContext == nil) managedObjectContext = self.managedObjectContext;
+    
     NSArray *jsonKeys = [data allKeys];
     
     NSUInteger count = 0;
@@ -158,7 +164,7 @@
             }
             
             NSManagedObject *otherObject = [NSEntityDescription insertNewObjectForEntityForName:entityName
-                                                                         inManagedObjectContext:self.managedObjectContext];
+                                                                         inManagedObjectContext:managedObjectContext];
             [self populateModelObject:otherObject withData:value];
             [object setValue:otherObject forKey:propertyName];
             continue;
@@ -180,6 +186,11 @@
     }
     
     free(properties);
+}
+
+- (void)populateModelObject:(NSManagedObject *)object withData:(NSDictionary *)data
+{
+    [self populateModelObject:object withData:data managedObjectContext:nil];
 }
 
 #pragma mark -
@@ -313,68 +324,94 @@
     }
     
     [self requestWithMethod:@"GET" endpoint:endpoint params:params completion:^(NSDictionary *result, NSError *error) {
-        if (error) {
-            
-            if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
-                [delegate data:self didFailWithError:error];
-            } else if (block) {
-                block(nil, NO, error);
-            }
-            
-        } else {
-            NSMutableArray *newObjects = [NSMutableArray array];
-            
-            // -- Delete previously stored objects, unless append=YES in which case we add to them --
-            
-            if (!append) {
-                for (NSManagedObject *object in cachedObjects) {
-                    [self disassociateObject:object withKey:key cacheKey:cacheKey];
-                    [_managedObjectContext deleteObject:object];
+        
+        // Get off the main thread
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            if (error) {
+                
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    if (delegate && [delegate respondsToSelector:@selector(data:didFailWithError:)]) {
+                        [delegate data:self didFailWithError:error];
+                    } else if (block) {
+                        block(nil, NO, error);
+                    }
+                });
+                
+            } else {
+                // Managed object context for this thread
+                NSManagedObjectContext *backgroundManagedObjectContext = [[NSManagedObjectContext alloc] init];
+                [backgroundManagedObjectContext setPersistentStoreCoordinator:_managedObjectContext.persistentStoreCoordinator];
+                
+                NSMutableArray *newObjects = [NSMutableArray array];
+                
+                // -- Delete previously stored objects, unless append=YES in which case we add to them --
+                
+                if (!append) {
+                    for (NSManagedObject *object in cachedObjects) {
+                        // Fetch the object in this thread's context
+                        NSManagedObject *_object = [backgroundManagedObjectContext objectWithID:object.objectID];
+                        
+                        [self disassociateObject:_object withKey:key cacheKey:cacheKey];
+                        [backgroundManagedObjectContext deleteObject:_object];
+                    }
+                } else if (cachedObjects != nil) {
+                    [newObjects addObjectsFromArray:cachedObjects];
                 }
-            } else if (cachedObjects != nil) {
-                [newObjects addObjectsFromArray:cachedObjects];
-            }
-            
-            // -- Convert JSON into model objects --
-            
-            for (NSDictionary *dict in [self dictionariesFromResult:result]) {
                 
-                // Sanity check
-                if (![dict isKindOfClass:[NSDictionary class]]) {
-                    NSLog(@"WARNING: expecting a dictionary from dictionariesFromResult: but found '%@'",
-                          NSStringFromClass([dict class]));
-                    continue;
+                // -- Convert JSON into model objects --
+                
+                for (NSDictionary *dict in [self dictionariesFromResult:result]) {
+                    
+                    // Sanity check
+                    if (![dict isKindOfClass:[NSDictionary class]]) {
+                        NSLog(@"WARNING: expecting a dictionary from dictionariesFromResult: but found '%@'",
+                              NSStringFromClass([dict class]));
+                        continue;
+                    }
+                    
+                    // Create the new object in this thread's context
+                    NSManagedObject *object = [self managedObjectFromDictionary:dict key:key managedObjectContext:backgroundManagedObjectContext];
+                    if (object == nil) continue;
+                    
+                    [self populateModelObject:object withData:dict managedObjectContext:backgroundManagedObjectContext];
+                    [newObjects addObject:object];
                 }
                 
-                NSManagedObject *object = [self managedObjectFromDictionary:dict key:key];
-                if (object == nil) continue;
+                [backgroundManagedObjectContext save:nil];
                 
-                [self populateModelObject:object withData:dict];
-                [newObjects addObject:object];
+                // Keep track of which key these objects are associated with (must be done after saving)
+                for (NSManagedObject *object in newObjects)
+                    [self associateObject:object withKey:key cacheKey:cacheKey];
+                
+                // Update cache miss time, even if we're appending objects to possibly stale cached objects --
+                [self setMissTimeForKey:key withCacheKey:cacheKey];
+                
+                // -- Send objects to delegate --
+                
+                // Are there more results to fetch after this?
+                BOOL more = [self serverHasMoreAfterResult:result];
+                
+                // Sort
+                NSArray *sorted = [self sortModelObjects:newObjects withMapping:mappingDict];
+                
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    
+                    // Fetch the objects in the main thread's managed object context
+                    NSMutableArray *_sorted = [NSMutableArray array];
+                    for (NSManagedObject *object in sorted)
+                        [_sorted addObject:[_managedObjectContext objectWithID:object.objectID]];
+                    
+                    if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:stale:)]) {
+                        [delegate data:self didReceiveObjects:_sorted more:more stale:NO];
+                    } else if (block) {
+                        block(_sorted, more, nil);
+                    }
+                });
             }
             
-            [_managedObjectContext save:nil];
-            
-            // Keep track of which key these objects are associated with (must be done after saving)
-            for (NSManagedObject *object in newObjects)
-                [self associateObject:object withKey:key cacheKey:cacheKey];
-            
-            // Update cache miss time, even if we're appending objects to possibly stale cached objects --
-            [self setMissTimeForKey:key withCacheKey:cacheKey];
-            
-            // -- Send objects to delegate --
-            
-            // Are there more results to fetch after this?
-            BOOL more = [self serverHasMoreAfterResult:result];
-            
-            NSArray *sorted = [self sortModelObjects:newObjects withMapping:mappingDict];
-            if (delegate && [delegate respondsToSelector:@selector(data:didReceiveObjects:more:stale:)]) {
-                [delegate data:self didReceiveObjects:sorted more:more stale:NO];
-            } else if (block) {
-                block(sorted, more, nil);
-            }
-        }
-    }];
+        }); // end of dispatch_async()
+        
+    }]; // end of completion block
 }
 
 - (void)fetchMany:(NSString *)key withParams:(NSDictionary *)params append:(BOOL)append delegate:(id<JPDataDelegate>)delegate cacheKey:(NSString *)cacheKey
@@ -480,7 +517,7 @@
             
             // -- Convert JSON to Core Data model object --
             
-            NSManagedObject *object = [self managedObjectFromDictionary:dict key:key];
+            NSManagedObject *object = [self managedObjectFromDictionary:dict key:key managedObjectContext:nil]; // will use default context
             
             if (object == nil) {
                 NSString *msg = [NSString stringWithFormat:@"Unable to create object for endpoint '%@'.", endpoint];
@@ -614,9 +651,33 @@
                                    return;
                                }
                                
-                               // Try to convert to JSON
-                               NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+                               NSString *text;
+                               
+                               if (![urlString containsString:@"/names"]) {
+                               
+                                   // Try to convert to JSON
+                                   text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+                                   
+                               } else {
+                               
+                                   NSMutableString *t = [[NSMutableString alloc] init];
+                                   [t appendString:@"["];
+                                   int total = 500;
+                                   for (int i=0; i < total; i++) {
+                                       NSString *nid = [NSString stringWithFormat:@"123%i", i];
+                                       [t appendFormat:@"{\"name_id\": \"%@\", \"list_id\": \"rm3yf\", \"first_name\": \"Andy\", \"last_name\": \"%@\", \"profile_id\": \"%@\", \"profile_type\": \"fb\", \"gender\": \"male\", \"added_by_fb_id\": \"535187202\", \"added_at\": \"2013-07-02 11:48:45\", \"arrived\": \"0\", \"added_by_full_name\": \"James Potter\", \"added_by_gender\": \"male\"}", nid, nid, nid];
+                                       
+                                       if (i < (total - 1)) [t appendString:@", "];
+                                   }
+                                   [t appendString:@"]"];
+                                   
+                                   text = [NSString stringWithString:t];
+//                                   NSLog(@"t = %@", text);
+                               }
+                               
                                NSDictionary *result = [_parser objectWithString:text];
+                               
+//                               NSLog(@"res = %@", result);
                                
                                // Allow subclass to hook in here
                                NSError *_error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
@@ -780,7 +841,7 @@
     } else if (mappingDict[@"entities"]) {
         [entities addObjectsFromArray:mappingDict[@"entities"]];
     } else {
-        NSLog(@"WARNING no 'entity' or 'entities' specified for key '%@'. Caching disabled.", key);
+//        NSLog(@"WARNING no 'entity' or 'entities' specified for key '%@'. Caching disabled.", key);
         return nil;
     }
     
@@ -849,16 +910,19 @@
     return [objects sortedArrayUsingDescriptors:descriptors];
 }
 
-- (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key
+- (NSManagedObject *)managedObjectFromDictionary:(NSDictionary *)dict key:(NSString *)key managedObjectContext:(NSManagedObjectContext *)managedObjectContext;
 {
     NSDictionary *mappingDict = _mapping[key];
     NSString *entityName = mappingDict[@"entity"];
     
-    // When 
     if (!entityName) entityName = [self entityNameForJsonData:dict withKey:key];
     if (!entityName) return nil;
     
-    return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:self.managedObjectContext];
+    // If nil is passed used the main thread's context
+    NSManagedObjectContext *context = managedObjectContext;
+    if (context == nil) context = self.managedObjectContext;
+    
+    return [NSEntityDescription insertNewObjectForEntityForName:entityName inManagedObjectContext:context];
 }
 
 - (void)cleanMisses
@@ -917,37 +981,41 @@
       used across multiple keys.
     */
     
-    NSString *k = key;
-    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
-    
-    NSArray *idStrings = _keyToManagedObjectMapping[k];
-    NSMutableArray *newStrings = [NSMutableArray array];
-    if (idStrings != nil) [newStrings addObjectsFromArray:idStrings];
-    
-    [newStrings addObject:[object.objectID.URIRepresentation absoluteString]];
-    _keyToManagedObjectMapping[k] = newStrings;
-    
-    // Persist
-    [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
-    [_def synchronize];
+    @synchronized(self) {
+        NSString *k = key;
+        if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+        
+        NSArray *idStrings = _keyToManagedObjectMapping[k];
+        NSMutableArray *newStrings = [NSMutableArray array];
+        if (idStrings != nil) [newStrings addObjectsFromArray:idStrings];
+        
+        [newStrings addObject:[object.objectID.URIRepresentation absoluteString]];
+        _keyToManagedObjectMapping[k] = newStrings;
+        
+        // Persist
+        [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
+        [_def synchronize];
+    }
 }
 
 - (void)disassociateObject:(NSManagedObject *)object withKey:(NSString *)key cacheKey:(NSString *)cacheKey
 {
-    NSString *k = key;
-    if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
-    
-    if (!_keyToManagedObjectMapping[k]) return;
-    
-    NSString *idString = [object.objectID.URIRepresentation absoluteString];
-    NSMutableArray *idStrings = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[k]];
-    if (idStrings) [idStrings removeObject:idString];
-    
-    _keyToManagedObjectMapping[k] = [NSArray arrayWithArray:idStrings];
-    
-    // Persist
-    [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
-    [_def synchronize];
+    @synchronized(self) {
+        NSString *k = key;
+        if (cacheKey) k = [NSString stringWithFormat:@"%@_%@", k, cacheKey];
+        
+        if (!_keyToManagedObjectMapping[k]) return;
+        
+        NSString *idString = [object.objectID.URIRepresentation absoluteString];
+        NSMutableArray *idStrings = [NSMutableArray arrayWithArray:_keyToManagedObjectMapping[k]];
+        if (idStrings) [idStrings removeObject:idString];
+        
+        _keyToManagedObjectMapping[k] = [NSArray arrayWithArray:idStrings];
+        
+        // Persist
+        [_def setObject:_keyToManagedObjectMapping forKey:JP_DATA_MANAGED_OBJECT_KEYS];
+        [_def synchronize];
+    }
 }
 
 - (NSArray *)objectIdentifiersWithKey:(NSString *)key cacheKey:(NSString *)cacheKey
