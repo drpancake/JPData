@@ -11,8 +11,6 @@
 
 #define JP_DATA_DEFAULT_CACHE_TIME 300 // used if cacheTimeForKey: is not overridden (seconds)
 #define JP_DATA_MISSES_KEY @"JP_DATA_MISSES_KEY" // NSUserDefaults key for _misses
-#define JP_DATA_MANAGED_OBJECT_KEYS @"JP_DATA_MANAGED_OBJECT_KEYS" // NSUserDefaults key for _keyToManagedObjectMapping
-
 
 @class JPData;
 
@@ -38,7 +36,6 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
     NSUserDefaults *_def;
     NSDictionary *_mapping; // key (NSString) -> parameters (NSDictionary)
     NSMutableDictionary *_misses; // key (NSString) -> Unix time of last cache miss (NSNumber)
-    NSMutableDictionary *_keyToManagedObjectMapping; // key (NSString) -> list of object UUIDs (NSArray)
     NSArray *_entities;
 }
 
