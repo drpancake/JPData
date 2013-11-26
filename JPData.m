@@ -511,9 +511,10 @@
             
             [self populateModelObject:object withData:dict];
             
-            // If the server didn't return an "id" for the object, manually assign it with the one
-            // used to do this fetch
-            if ([object valueForKey:@"id_"] == nil) [object setValue:id_ forKey:@"id_"];
+            // If the server didn't return an "id" for the object, manually assign it
+            // with the one used to do this fetch
+            
+            if (id_ && [object valueForKey:@"id_"] == nil) [object setValue:id_ forKey:@"id_"];
             
             // Keep track of which key this object is associated with (must be done after saving)
             [self associateObject:object withKey:key cacheKey:cacheKey];
