@@ -124,7 +124,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
   an array of NSDictionary objects to turn into CoreData models. The default implementation
   wraps the given dictionary in a newly created NSArray.
 */
-- (NSArray *)dictionariesFromResult:(NSDictionary *)result;
+- (NSArray *)dictionariesFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint;
 
 /*
   Called by fetch:withID:params:delegate: when the JSON response comes back from the server.

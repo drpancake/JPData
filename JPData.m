@@ -208,7 +208,7 @@
     
 }
 
-- (NSArray *)dictionariesFromResult:(NSDictionary *)result
+- (NSArray *)dictionariesFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint
 {
     NSArray *dicts = nil;
     if (result) dicts = @[result];
@@ -346,7 +346,9 @@
                 
                 // -- Convert JSON into model objects --
                 
-                for (NSDictionary *dict in [self dictionariesFromResult:result]) {
+                
+                NSArray *dictionaries = [self dictionariesFromResult:result withKey:key endpoint:endpoint];
+                for (NSDictionary *dict in dictionaries) {
                     
                     // Sanity check
                     if (![dict isKindOfClass:[NSDictionary class]]) {
