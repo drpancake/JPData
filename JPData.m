@@ -635,6 +635,7 @@
                                
                                NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                NSDictionary *result = [_parser objectWithString:text];
+                               if (result == nil) NSLog(@"JSON error: %@", _parser.error);
                                
                                // Allow subclass to hook in here
                                NSError *_error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
@@ -669,7 +670,7 @@
                                    
                                } else {
                                    dispatch_async(dispatch_get_main_queue(), ^{
-                                       requestBlock(nil, error);
+                                       requestBlock(result, error);
                                    });
                                }
                            }];
