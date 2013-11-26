@@ -215,7 +215,7 @@
     return dicts;
 }
 
-- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result
+- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint
 {
     return result;
 }
@@ -480,7 +480,7 @@
             return;
         }
         
-        NSDictionary *dict = [self dictionaryFromResult:result];
+        NSDictionary *dict = [self dictionaryFromResult:result withKey:key endpoint:endpoint];
         
         if (dict == nil) {
             NSString *msg = [NSString stringWithFormat:@"Empty dictionary received for endpoint '%@'", endpoint];

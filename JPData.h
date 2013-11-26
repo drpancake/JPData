@@ -133,7 +133,7 @@ typedef void(^JPDataFetchBlock)(id object, NSError *error);
  
   Default implementation returns the 'result' dictionary, i.e. does nothing.
 */
-- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result;
+- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint;
 
 /*
   If no 'entities' is specified for the given key in keyMappings instead of the standard 'entity',
