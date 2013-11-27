@@ -593,8 +593,8 @@
     
     [request setHTTPMethod:method];
     
-    // POST parameters
-    if ([method isEqualToString:@"POST"]) {
+    // PUT or POST parameters
+    if ([method isEqualToString:@"POST"] || [method isEqualToString:@"PUT"]) {
         [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"content-type"];
         
         if (params) {
