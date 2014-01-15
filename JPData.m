@@ -633,45 +633,41 @@
                                    return;
                                }
                                
+                               // This is the slow part
                                NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                NSDictionary *result = [_parser objectWithString:text];
                                
-                               // Allow subclass to hook in here
-                               NSError *_error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
-                               
-                               if (_error) {
-                                   dispatch_async(dispatch_get_main_queue(), ^{
-                                       requestBlock(nil, _error);
-                                   });
-                                   return;
-                               }
-                               
-                               if (statusCode == 200) {
-                                   dispatch_async(dispatch_get_main_queue(), ^{
-                                       requestBlock(result, nil);
-                                   });
-                               } else if (statusCode == 400 || statusCode == 404 || statusCode == 500) {
-                                   NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
-                                   NSDictionary *json = [_parser objectWithString:text];
-                                   NSString *message;
-                                   if (json && json[@"error"] != nil) {
-                                       message = json[@"error"];
-                                   } else {
-                                       message = @"There was a problem connecting to the server.";
+                               dispatch_async(dispatch_get_main_queue(), ^{
+                                   // Allow subclass to hook in here
+                                   NSError *error = [self didReceiveResult:result withHTTPStatusCode:statusCode];
+                                   
+                                   if (error) {
+                                       requestBlock(nil, error);
+                                       return;
                                    }
                                    
-                                   NSDictionary *userInfo = @{NSLocalizedDescriptionKey : message};
-                                   error = [NSError errorWithDomain:@"JPData" code:1 userInfo:userInfo];
-                                   
-                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                   if (statusCode == 200) {
+                                       requestBlock(result, nil);
+                                   } else if (statusCode == 400 || statusCode == 404 || statusCode == 500) {
+                                       
+                                       NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
+                                       NSDictionary *json = [_parser objectWithString:text];
+                                       NSString *message;
+                                       if (json && json[@"error"] != nil) {
+                                           message = json[@"error"];
+                                       } else {
+                                           message = @"There was a problem connecting to the server.";
+                                       }
+                                       
+                                       NSDictionary *userInfo = @{NSLocalizedDescriptionKey : message};
+                                       NSError *error = [NSError errorWithDomain:@"JPData" code:1 userInfo:userInfo];
                                        requestBlock(nil, error);
-                                   });
-                                   
-                               } else {
-                                   dispatch_async(dispatch_get_main_queue(), ^{
+                                       
+                                   } else {
                                        requestBlock(nil, error);
-                                   });
-                               }
+                                   }
+
+                               });
                            }];
 }
 
