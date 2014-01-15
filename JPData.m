@@ -208,14 +208,14 @@
     
 }
 
-- (NSArray *)dictionariesFromResult:(NSDictionary *)result
+- (NSArray *)dictionariesFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint
 {
     NSArray *dicts = nil;
     if (result) dicts = @[result];
     return dicts;
 }
 
-- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result
+- (NSDictionary *)dictionaryFromResult:(NSDictionary *)result withKey:(NSString *)key endpoint:(NSString *)endpoint
 {
     return result;
 }
@@ -346,7 +346,9 @@
                 
                 // -- Convert JSON into model objects --
                 
-                for (NSDictionary *dict in [self dictionariesFromResult:result]) {
+                
+                NSArray *dictionaries = [self dictionariesFromResult:result withKey:key endpoint:endpoint];
+                for (NSDictionary *dict in dictionaries) {
                     
                     // Sanity check
                     if (![dict isKindOfClass:[NSDictionary class]]) {
@@ -478,7 +480,7 @@
             return;
         }
         
-        NSDictionary *dict = [self dictionaryFromResult:result];
+        NSDictionary *dict = [self dictionaryFromResult:result withKey:key endpoint:endpoint];
         
         if (dict == nil) {
             NSString *msg = [NSString stringWithFormat:@"Empty dictionary received for endpoint '%@'", endpoint];
@@ -509,9 +511,10 @@
             
             [self populateModelObject:object withData:dict];
             
-            // If the server didn't return an "id" for the object, manually assign it with the one
-            // used to do this fetch
-            if ([object valueForKey:@"id_"] == nil) [object setValue:id_ forKey:@"id_"];
+            // If the server didn't return an "id" for the object, manually assign it
+            // with the one used to do this fetch
+            
+            if (id_ && [object valueForKey:@"id_"] == nil) [object setValue:id_ forKey:@"id_"];
             
             // Keep track of which key this object is associated with (must be done after saving)
             [self associateObject:object withKey:key cacheKey:cacheKey];
@@ -590,8 +593,8 @@
     
     [request setHTTPMethod:method];
     
-    // POST parameters
-    if ([method isEqualToString:@"POST"]) {
+    // PUT or POST parameters
+    if ([method isEqualToString:@"POST"] || [method isEqualToString:@"PUT"]) {
         [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"content-type"];
         
         if (params) {
@@ -636,6 +639,7 @@
                                // This is the slow part
                                NSString *text = [[NSString alloc] initWithData:responseData encoding:NSASCIIStringEncoding];
                                NSDictionary *result = [_parser objectWithString:text];
+                               if (result == nil) NSLog(@"JSON error: %@", _parser.error);
                                
                                dispatch_async(dispatch_get_main_queue(), ^{
                                    // Allow subclass to hook in here
@@ -664,7 +668,7 @@
                                        requestBlock(nil, error);
                                        
                                    } else {
-                                       requestBlock(nil, error);
+                                       requestBlock(result, error);
                                    }
 
                                });
